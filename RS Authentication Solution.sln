@@ -1,0 +1,25 @@
+﻿
+Microsoft Visual Studio Solution File, Format Version 12.00
+# Visual Studio Version 16
+VisualStudioVersion = 16.0.29509.3
+MinimumVisualStudioVersion = 10.0.40219.1
+Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "RS Token Authentication", "RS Token Authentication\RS Token Authentication.csproj", "{2B2ACE3F-56DD-4BD3-A93D-B41AE1D2EA9A}"
+EndProject
+Global
+	GlobalSection(SolutionConfigurationPlatforms) = preSolution
+		Debug|Any CPU = Debug|Any CPU
+		Release|Any CPU = Release|Any CPU
+	EndGlobalSection
+	GlobalSection(ProjectConfigurationPlatforms) = postSolution
+		{2B2ACE3F-56DD-4BD3-A93D-B41AE1D2EA9A}.Debug|Any CPU.ActiveCfg = Debug|Any CPU
+		{2B2ACE3F-56DD-4BD3-A93D-B41AE1D2EA9A}.Debug|Any CPU.Build.0 = Debug|Any CPU
+		{2B2ACE3F-56DD-4BD3-A93D-B41AE1D2EA9A}.Release|Any CPU.ActiveCfg = Release|Any CPU
+		{2B2ACE3F-56DD-4BD3-A93D-B41AE1D2EA9A}.Release|Any CPU.Build.0 = Release|Any CPU
+	EndGlobalSection
+	GlobalSection(SolutionProperties) = preSolution
+		HideSolutionNode = FALSE
+	EndGlobalSection
+	GlobalSection(ExtensibilityGlobals) = postSolution
+		SolutionGuid = {D3EA05F5-5C3A-4754-BED5-8C5A11334E22}
+	EndGlobalSection
+EndGlobal
