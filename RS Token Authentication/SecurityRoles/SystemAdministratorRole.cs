@@ -22,7 +22,11 @@ namespace RSWebAuthentication.SecurityRoles
                 CatalogOperation.UpdateSchedules,
                 CatalogOperation.ReadSystemSecurityPolicy,
                 CatalogOperation.UpdateSystemSecurityPolicy,
-                CatalogOperation.CreateRoles
+                CatalogOperation.CreateRoles,
+                CatalogOperation.DeleteRoles,
+                CatalogOperation.ReadRoleProperties,
+                CatalogOperation.UpdateRoleProperties,
+                CatalogOperation.GenerateEvents
             };
             ReportOperations = new ReportOperation[] { };
             FolderOperations = new FolderOperation[] { };
