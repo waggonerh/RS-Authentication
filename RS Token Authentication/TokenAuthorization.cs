@@ -5,7 +5,7 @@ using System.IO;
 using System.Runtime.Serialization.Formatters.Binary;
 using Microsoft.ReportingServices.Interfaces;
 using System.Linq;
-using RSWebAuthentication.SecurityRoles;
+using System.Xml;
 
 namespace RSWebAuthentication
 {
@@ -15,6 +15,9 @@ namespace RSWebAuthentication
     /// </summary>
     class TokenAuthorization : IAuthorizationExtension
     {
+        private List<AllowedSecurityTypes> _allowedSecurityTypes = new List<AllowedSecurityTypes>();
+        private Dictionary<AllowedSecurityTypes, List<string>> _securityOverrides = new Dictionary<AllowedSecurityTypes, List<string>>();
+
         static TokenAuthorization()
         {
             InitializeMaps();
@@ -30,23 +33,17 @@ namespace RSWebAuthentication
 
         public bool CheckAccess(string userName, IntPtr userToken, byte[] secDesc, CatalogOperation requiredOperation)
         {
-            ISecurityRole[] userServerRoles = TokenUtilities.GetServerSecurityRolesFromToken(userName);
-            string[] userSecurityRoles = TokenUtilities.GetAllSecurityRolesFromToken(userName);
-
-            //Check Server Roles
-            foreach (ISecurityRole role in userServerRoles)
+            //Check Overrides
+            if (IsSecurityOverride(userName))
             {
-                if (role.CatalogOperations.Contains(requiredOperation))
-                {
-                    return true;
-                }
+                return true;
             }
 
             //Check ACL Permissions
             AceCollection acl = DeserializeAcl(secDesc);
             foreach (AceStruct ace in acl)
             {
-                if(userSecurityRoles.Contains(ace.PrincipalName))
+                if (ValidateACLPrincipal(ace.PrincipalName, userName))
                 {
                     foreach (CatalogOperation aclOperation in ace.CatalogOperations)
                     {
@@ -61,52 +58,43 @@ namespace RSWebAuthentication
 
         public bool CheckAccess(string userName, IntPtr userToken, byte[] secDesc, CatalogOperation[] requiredOperations)
         {
-            ISecurityRole[] userServerRoles = TokenUtilities.GetServerSecurityRolesFromToken(userName);
-            string[] userSecurityRoles = TokenUtilities.GetAllSecurityRolesFromToken(userName);
-
-            List<CatalogOperation> aggregateUserPermssions = new List<CatalogOperation>();
-
-            //Aggregate Server Role Permssions
-            foreach (ISecurityRole role in userServerRoles)
+            //Check Overrides
+            if (IsSecurityOverride(userName))
             {
-                aggregateUserPermssions.AddRange(role.CatalogOperations);
+                return true;
             }
 
-            //Aggregate ACL Role Permssions
+            //Check ACL Permissions
+            List<CatalogOperation> aggregatePermssions = new List<CatalogOperation>();
+
             AceCollection acl = DeserializeAcl(secDesc);
             foreach (AceStruct ace in acl)
             {
-                if (userSecurityRoles.Contains(ace.PrincipalName))
+                if (ValidateACLPrincipal(ace.PrincipalName, userName))
                 {
                     foreach (CatalogOperation aclOperation in ace.CatalogOperations)
                     {
-                        aggregateUserPermssions.Add(aclOperation);
+                        aggregatePermssions.Add(aclOperation);
                     }
                 }
             }
 
-            return !requiredOperations.Except(aggregateUserPermssions).Any();
+            return !requiredOperations.Except(aggregatePermssions).Any();
         }
 
         public bool CheckAccess(string userName, IntPtr userToken, byte[] secDesc, ReportOperation requiredOperation)
         {
-            ISecurityRole[] userServerRoles = TokenUtilities.GetServerSecurityRolesFromToken(userName);
-            string[] userSecurityRoles = TokenUtilities.GetAllSecurityRolesFromToken(userName);
-
-            //Check Server Roles
-            foreach (ISecurityRole role in userServerRoles)
+            //Check Overrides
+            if (IsSecurityOverride(userName))
             {
-                if (role.ReportOperations.Contains(requiredOperation))
-                {
-                    return true;
-                }
+                return true;
             }
 
             //Check ACL Permissions
             AceCollection acl = DeserializeAcl(secDesc);
             foreach (AceStruct ace in acl)
             {
-                if (userSecurityRoles.Contains(ace.PrincipalName))
+                if (ValidateACLPrincipal(ace.PrincipalName, userName))
                 {
                     foreach (ReportOperation aclOperation in ace.ReportOperations)
                     {
@@ -121,23 +109,17 @@ namespace RSWebAuthentication
 
         public bool CheckAccess(string userName, IntPtr userToken, byte[] secDesc, FolderOperation requiredOperation)
         {
-            ISecurityRole[] userServerRoles = TokenUtilities.GetServerSecurityRolesFromToken(userName);
-            string[] userSecurityRoles = TokenUtilities.GetAllSecurityRolesFromToken(userName);
-
-            //Check Server Roles
-            foreach (ISecurityRole role in userServerRoles)
+            //Check Overrides
+            if (IsSecurityOverride(userName))
             {
-                if (role.FolderOperations.Contains(requiredOperation))
-                {
-                    return true;
-                }
+                return true;
             }
 
             //Check ACL Permissions
             AceCollection acl = DeserializeAcl(secDesc);
             foreach (AceStruct ace in acl)
             {
-                if (userSecurityRoles.Contains(ace.PrincipalName))
+                if (ValidateACLPrincipal(ace.PrincipalName, userName))
                 {
                     foreach (FolderOperation aclOperation in ace.FolderOperations)
                     {
@@ -152,52 +134,43 @@ namespace RSWebAuthentication
 
         public bool CheckAccess(string userName, IntPtr userToken, byte[] secDesc, FolderOperation[] requiredOperations)
         {
-            ISecurityRole[] userServerRoles = TokenUtilities.GetServerSecurityRolesFromToken(userName);
-            string[] userSecurityRoles = TokenUtilities.GetAllSecurityRolesFromToken(userName);
-
-            List<FolderOperation> aggregateUserPermssions = new List<FolderOperation>();
-
-            //Aggregate Server Role Permssions
-            foreach (ISecurityRole role in userServerRoles)
+            //Check Overrides
+            if (IsSecurityOverride(userName))
             {
-                aggregateUserPermssions.AddRange(role.FolderOperations);
+                return true;
             }
 
-            //Aggregate ACL Role Permssions
+            //Check ACL Permissions
+            List<FolderOperation> aggregatePermssions = new List<FolderOperation>();
+
             AceCollection acl = DeserializeAcl(secDesc);
             foreach (AceStruct ace in acl)
             {
-                if (userSecurityRoles.Contains(ace.PrincipalName))
+                if (ValidateACLPrincipal(ace.PrincipalName, userName))
                 {
                     foreach (FolderOperation aclOperation in ace.FolderOperations)
                     {
-                        aggregateUserPermssions.Add(aclOperation);
+                        aggregatePermssions.Add(aclOperation);
                     }
                 }
             }
 
-            return !requiredOperations.Except(aggregateUserPermssions).Any();
+            return !requiredOperations.Except(aggregatePermssions).Any();
         }
 
         public bool CheckAccess(string userName, IntPtr userToken, byte[] secDesc, ResourceOperation requiredOperation)
         {
-            ISecurityRole[] userServerRoles = TokenUtilities.GetServerSecurityRolesFromToken(userName);
-            string[] userSecurityRoles = TokenUtilities.GetAllSecurityRolesFromToken(userName);
-
-            //Check Server Roles
-            foreach (ISecurityRole role in userServerRoles)
+            //Check Overrides
+            if (IsSecurityOverride(userName))
             {
-                if (role.ResourceOperations.Contains(requiredOperation))
-                {
-                    return true;
-                }
+                return true;
             }
 
             //Check ACL Permissions
             AceCollection acl = DeserializeAcl(secDesc);
             foreach (AceStruct ace in acl)
             {
-                if (userSecurityRoles.Contains(ace.PrincipalName))
+                if (ValidateACLPrincipal(ace.PrincipalName, userName))
                 {
                     foreach (ResourceOperation aclOperation in ace.ResourceOperations)
                     {
@@ -212,52 +185,43 @@ namespace RSWebAuthentication
 
         public bool CheckAccess(string userName, IntPtr userToken, byte[] secDesc, ResourceOperation[] requiredOperations)
         {
-            ISecurityRole[] userServerRoles = TokenUtilities.GetServerSecurityRolesFromToken(userName);
-            string[] userSecurityRoles = TokenUtilities.GetAllSecurityRolesFromToken(userName);
-
-            List<ResourceOperation> aggregateUserPermssions = new List<ResourceOperation>();
-
-            //Aggregate Server Role Permssions
-            foreach (ISecurityRole role in userServerRoles)
+            //Check Overrides
+            if (IsSecurityOverride(userName))
             {
-                aggregateUserPermssions.AddRange(role.ResourceOperations);
+                return true;
             }
 
-            //Aggregate ACL Role Permssions
+            //Check ACL Permissions
+            List<ResourceOperation> aggregatePermssions = new List<ResourceOperation>();
+
             AceCollection acl = DeserializeAcl(secDesc);
             foreach (AceStruct ace in acl)
             {
-                if (userSecurityRoles.Contains(ace.PrincipalName))
+                if (ValidateACLPrincipal(ace.PrincipalName, userName))
                 {
                     foreach (ResourceOperation aclOperation in ace.ResourceOperations)
                     {
-                        aggregateUserPermssions.Add(aclOperation);
+                        aggregatePermssions.Add(aclOperation);
                     }
                 }
             }
 
-            return !requiredOperations.Except(aggregateUserPermssions).Any();
+            return !requiredOperations.Except(aggregatePermssions).Any();
         }
 
         public bool CheckAccess(string userName, IntPtr userToken, byte[] secDesc, DatasourceOperation requiredOperation)
         {
-            ISecurityRole[] userServerRoles = TokenUtilities.GetServerSecurityRolesFromToken(userName);
-            string[] userSecurityRoles = TokenUtilities.GetAllSecurityRolesFromToken(userName);
-
-            //Check Server Roles
-            foreach (ISecurityRole role in userServerRoles)
+            //Check Overrides
+            if (IsSecurityOverride(userName))
             {
-                if (role.DatasourceOperations.Contains(requiredOperation))
-                {
-                    return true;
-                }
+                return true;
             }
 
             //Check ACL Permissions
             AceCollection acl = DeserializeAcl(secDesc);
             foreach (AceStruct ace in acl)
             {
-                if (userSecurityRoles.Contains(ace.PrincipalName))
+                if (ValidateACLPrincipal(ace.PrincipalName, userName))
                 {
                     foreach (DatasourceOperation aclOperation in ace.DatasourceOperations)
                     {
@@ -272,23 +236,17 @@ namespace RSWebAuthentication
 
         public bool CheckAccess(string userName, IntPtr userToken, byte[] secDesc, ModelOperation requiredOperation)
         {
-            ISecurityRole[] userServerRoles = TokenUtilities.GetServerSecurityRolesFromToken(userName);
-            string[] userSecurityRoles = TokenUtilities.GetAllSecurityRolesFromToken(userName);
-
-            //Check Server Roles
-            foreach (ISecurityRole role in userServerRoles)
+            //Check Overrides
+            if (IsSecurityOverride(userName))
             {
-                if (role.ModelOperations.Contains(requiredOperation))
-                {
-                    return true;
-                }
+                return true;
             }
 
             //Check ACL Permissions
             AceCollection acl = DeserializeAcl(secDesc);
             foreach (AceStruct ace in acl)
             {
-                if (userSecurityRoles.Contains(ace.PrincipalName))
+                if (ValidateACLPrincipal(ace.PrincipalName, userName))
                 {
                     foreach (ModelOperation aclOperation in ace.ModelOperations)
                     {
@@ -303,23 +261,17 @@ namespace RSWebAuthentication
 
         public bool CheckAccess(string userName, IntPtr userToken, byte[] secDesc, ModelItemOperation requiredOperation)
         {
-            ISecurityRole[] userServerRoles = TokenUtilities.GetServerSecurityRolesFromToken(userName);
-            string[] userSecurityRoles = TokenUtilities.GetAllSecurityRolesFromToken(userName);
-
-            //Check Server Roles
-            foreach (ISecurityRole role in userServerRoles)
+            //Check Overrides
+            if (IsSecurityOverride(userName))
             {
-                if (role.modelItemOperations.Contains(requiredOperation))
-                {
-                    return true;
-                }
+                return true;
             }
 
             //Check ACL Permissions
             AceCollection acl = DeserializeAcl(secDesc);
             foreach (AceStruct ace in acl)
             {
-                if (userSecurityRoles.Contains(ace.PrincipalName))
+                if (ValidateACLPrincipal(ace.PrincipalName, userName))
                 {
                     foreach (ModelItemOperation aclOperation in ace.ModelItemOperations)
                     {
@@ -344,98 +296,108 @@ namespace RSWebAuthentication
 
         public StringCollection GetPermissions(string userName, IntPtr userToken, SecurityItemType itemType, byte[] secDesc)
         {
-            ISecurityRole[] userServerRoles = TokenUtilities.GetServerSecurityRolesFromToken(userName);
-            string[] userSecurityRoles = TokenUtilities.GetAllSecurityRolesFromToken(userName);
-
             StringCollection permissions = new StringCollection();
 
-            foreach (ISecurityRole role in userServerRoles)
+            //Check Overrides
+            if (IsSecurityOverride(userName))
             {
-                foreach (CatalogOperation aclOperation in role.CatalogOperations)
-                {
-                    if (!permissions.Contains((string)_catalogOperationNames[aclOperation]))
-                        permissions.Add((string)_catalogOperationNames[aclOperation]);
-                }
-                foreach (ReportOperation aclOperation in role.ReportOperations)
-                {
-                    if (!permissions.Contains((string)_reportOperationNames[aclOperation]))
-                        permissions.Add((string)_reportOperationNames[aclOperation]);
-                }
-                foreach (FolderOperation aclOperation in role.FolderOperations)
-                {
-                    if (!permissions.Contains((string)_folderOperationNames[aclOperation]))
-                        permissions.Add((string)_folderOperationNames[aclOperation]);
-                }
-                foreach (ResourceOperation aclOperation in role.ResourceOperations)
-                {
-                    if (!permissions.Contains((string)_resourceOperationNames[aclOperation]))
-                        permissions.Add((string)_resourceOperationNames[aclOperation]);
-                }
-                foreach (DatasourceOperation aclOperation in role.DatasourceOperations)
-                {
-                    if (!permissions.Contains((string)_datasetOperationNames[aclOperation]))
-                        permissions.Add((string)_datasetOperationNames[aclOperation]);
-                }
-                foreach (ModelOperation aclOperation in role.ModelOperations)
-                {
-                    if (!permissions.Contains((string)_modelOperationNames[aclOperation]))
-                        permissions.Add((string)_modelOperationNames[aclOperation]);
-                }
-                foreach (ModelItemOperation aclOperation in role.modelItemOperations)
-                {
-                    if (!permissions.Contains((string)_modelItemOperationNames[aclOperation]))
-                        permissions.Add((string)_modelItemOperationNames[aclOperation]);
-                }
+                permissions.AddRange(_catalogOperationNames.Select(t => t.Value).Distinct().ToArray());
+                permissions.AddRange(_reportOperationNames.Select(t => t.Value).Distinct().ToArray());
+                permissions.AddRange(_folderOperationNames.Select(t => t.Value).Distinct().ToArray());
+                permissions.AddRange(_resourceOperationNames.Select(t => t.Value).Distinct().ToArray());
+                permissions.AddRange(_datasetOperationNames.Select(t => t.Value).Distinct().ToArray());
+                permissions.AddRange(_modelOperationNames.Select(t => t.Value).Distinct().ToArray());
+                permissions.AddRange(_modelItemOperationNames.Select(t => t.Value).Distinct().ToArray());
             }
-
-            AceCollection acl = DeserializeAcl(secDesc);
-            foreach (AceStruct ace in acl)
+            else
             {
-                if (userSecurityRoles.Contains(ace.PrincipalName))
+                AceCollection acl = DeserializeAcl(secDesc);
+                foreach (AceStruct ace in acl)
                 {
-                    foreach (CatalogOperation aclOperation in ace.CatalogOperations)
+                    if (ValidateACLPrincipal(ace.PrincipalName, userName))
                     {
-                        if (!permissions.Contains((string)_catalogOperationNames[aclOperation]))
-                            permissions.Add((string)_catalogOperationNames[aclOperation]);
-                    }
-                    foreach (ReportOperation aclOperation in ace.ReportOperations)
-                    {
-                        if (!permissions.Contains((string)_reportOperationNames[aclOperation]))
-                            permissions.Add((string)_reportOperationNames[aclOperation]);
-                    }
-                    foreach (FolderOperation aclOperation in ace.FolderOperations)
-                    {
-                        if (!permissions.Contains((string)_folderOperationNames[aclOperation]))
-                            permissions.Add((string)_folderOperationNames[aclOperation]);
-                    }
-                    foreach (ResourceOperation aclOperation in ace.ResourceOperations)
-                    {
-                        if (!permissions.Contains((string)_resourceOperationNames[aclOperation]))
-                            permissions.Add((string)_resourceOperationNames[aclOperation]);
-                    }
-                    foreach (DatasourceOperation aclOperation in ace.DatasourceOperations)
-                    {
-                        if (!permissions.Contains((string)_datasetOperationNames[aclOperation]))
-                            permissions.Add((string)_datasetOperationNames[aclOperation]);
-                    }
-                    foreach (ModelOperation aclOperation in ace.ModelOperations)
-                    {
-                        if (!permissions.Contains((string)_modelOperationNames[aclOperation]))
-                            permissions.Add((string)_modelOperationNames[aclOperation]);
-                    }
-                    foreach (ModelItemOperation aclOperation in ace.ModelItemOperations)
-                    {
-                        if (!permissions.Contains((string)_modelItemOperationNames[aclOperation]))
-                            permissions.Add((string)_modelItemOperationNames[aclOperation]);
+                        foreach (CatalogOperation aclOperation in ace.CatalogOperations)
+                        {
+                            if (!permissions.Contains((string)_catalogOperationNames[aclOperation]))
+                                permissions.Add((string)_catalogOperationNames[aclOperation]);
+                        }
+                        foreach (ReportOperation aclOperation in ace.ReportOperations)
+                        {
+                            if (!permissions.Contains((string)_reportOperationNames[aclOperation]))
+                                permissions.Add((string)_reportOperationNames[aclOperation]);
+                        }
+                        foreach (FolderOperation aclOperation in ace.FolderOperations)
+                        {
+                            if (!permissions.Contains((string)_folderOperationNames[aclOperation]))
+                                permissions.Add((string)_folderOperationNames[aclOperation]);
+                        }
+                        foreach (ResourceOperation aclOperation in ace.ResourceOperations)
+                        {
+                            if (!permissions.Contains((string)_resourceOperationNames[aclOperation]))
+                                permissions.Add((string)_resourceOperationNames[aclOperation]);
+                        }
+                        foreach (DatasourceOperation aclOperation in ace.DatasourceOperations)
+                        {
+                            if (!permissions.Contains((string)_datasetOperationNames[aclOperation]))
+                                permissions.Add((string)_datasetOperationNames[aclOperation]);
+                        }
+                        foreach (ModelOperation aclOperation in ace.ModelOperations)
+                        {
+                            if (!permissions.Contains((string)_modelOperationNames[aclOperation]))
+                                permissions.Add((string)_modelOperationNames[aclOperation]);
+                        }
+                        foreach (ModelItemOperation aclOperation in ace.ModelItemOperations)
+                        {
+                            if (!permissions.Contains((string)_modelItemOperationNames[aclOperation]))
+                                permissions.Add((string)_modelItemOperationNames[aclOperation]);
+                        }
                     }
                 }
             }
             return permissions;
         }
-                    
+
         public void SetConfiguration(string configuration)
         {
-            //Read xml from security/configuration section of RSReportServer.config
+            if (!string.IsNullOrEmpty(configuration))
+            {
+                configuration = String.Concat("<Configuration>", configuration, "</Configuration>");
+
+                XmlDocument xmlDocument = new XmlDocument();
+                xmlDocument.LoadXml(configuration);
+                XmlNode root = xmlDocument.DocumentElement;
+
+                XmlNode xmlSecurityTypes = root.SelectSingleNode("AllowedSecurityTypes");
+
+                foreach (XmlNode child in xmlSecurityTypes.ChildNodes)
+                {
+                    AllowedSecurityTypes securityType;
+                    if (Enum.TryParse(child.Name, out securityType))
+                    {
+                        _allowedSecurityTypes.Add(securityType);
+                    }
+                }
+
+                //Allow full security for specific users, groups or roles
+                _securityOverrides = new Dictionary<AllowedSecurityTypes, List<string>>();
+                _securityOverrides.Add(AllowedSecurityTypes.Roles, new List<string>());
+                _securityOverrides.Add(AllowedSecurityTypes.Users, new List<string>());
+                _securityOverrides.Add(AllowedSecurityTypes.Groups, new List<string>());
+
+                XmlNode xmlSecurityOverride = root.SelectSingleNode("SecurityOverride");
+
+                foreach (XmlNode child in xmlSecurityOverride.ChildNodes)
+                {
+                    AllowedSecurityTypes securityType;
+                    if (Enum.TryParse(child.Name, out securityType))
+                    {
+                        foreach (XmlNode item in child.ChildNodes)
+                        {
+                            _securityOverrides[securityType].Add(item.InnerText);
+                        }
+                    }
+                }
+            }
         }
 
         private static Dictionary<CatalogOperation, string> _catalogOperationNames = new Dictionary<CatalogOperation, string>();
@@ -577,6 +539,58 @@ namespace RSWebAuthentication
                 }
             }
             return acl;
+        }
+
+        private bool IsSecurityOverride(string userName)
+        {
+            if (_securityOverrides[AllowedSecurityTypes.Users].Contains(userName, StringComparer.OrdinalIgnoreCase))
+            {
+                return true;
+            }
+            if (_securityOverrides[AllowedSecurityTypes.Groups].Count > 0)
+            {
+                string[] userSecurityGroups = TokenUtilities.GetAllGroupsForUser(userName);
+                if (userSecurityGroups.Intersect(_securityOverrides[AllowedSecurityTypes.Groups], StringComparer.OrdinalIgnoreCase).Count() >= 1)
+                {
+                    return true;
+                }
+            }
+            if (_securityOverrides[AllowedSecurityTypes.Roles].Count > 0)
+            {
+                string[] userSecurityRoles = TokenUtilities.GetAllClaimsFromToken(userName, "roles");
+                if (userSecurityRoles.Intersect(_securityOverrides[AllowedSecurityTypes.Roles], StringComparer.OrdinalIgnoreCase).Count() >= 1)
+                {
+                    return true;
+                }
+            }
+
+            return false;
+        }
+
+        private bool ValidateACLPrincipal(string principalName, string userName)
+        {
+            if (_allowedSecurityTypes.Contains(AllowedSecurityTypes.Users) && principalName.Equals(userName, StringComparison.OrdinalIgnoreCase))
+            {
+                return true;
+            }
+            if (_allowedSecurityTypes.Contains(AllowedSecurityTypes.Groups))
+            {
+                string[] userSecurityGroups = TokenUtilities.GetAllGroupsForUser(userName);
+                if (userSecurityGroups.Contains(principalName, StringComparer.OrdinalIgnoreCase))
+                {
+                    return true;
+                }
+            }
+            if (_allowedSecurityTypes.Contains(AllowedSecurityTypes.Groups))
+            {
+                string[] userSecurityRoles = TokenUtilities.GetAllClaimsFromToken(userName, "roles");
+                if (userSecurityRoles.Contains(principalName, StringComparer.OrdinalIgnoreCase))
+                {
+                    return true;
+                }
+            }
+
+            return false;
         }
     }
 }

@@ -144,7 +144,7 @@ namespace RSWebAuthentication
                     {
                         lastWrite = DateTime.MinValue;
                     }
-                    
+
                 }
             }
 

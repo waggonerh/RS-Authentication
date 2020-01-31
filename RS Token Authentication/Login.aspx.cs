@@ -27,7 +27,7 @@ namespace RSWebAuthentication
             else if (Request.Params.AllKeys.Contains("code"))
             {
                 string code = Request.Params.GetValues("code")[0];
-                authResult = TokenUtilities.GetTokenFromAuthCode(code);
+                authResult = TokenUtilities.GetAuthenticationResultFromAuthCode(code);
             }
 
             if (authResult == null)
