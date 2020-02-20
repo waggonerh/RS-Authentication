@@ -581,7 +581,7 @@ namespace RSWebAuthentication
                     return true;
                 }
             }
-            if (_allowedSecurityTypes.Contains(AllowedSecurityTypes.Groups))
+            if (_allowedSecurityTypes.Contains(AllowedSecurityTypes.Roles))
             {
                 string[] userSecurityRoles = TokenUtilities.GetAllClaimsFromToken(userName, "roles");
                 if (userSecurityRoles.Contains(principalName, StringComparer.OrdinalIgnoreCase))

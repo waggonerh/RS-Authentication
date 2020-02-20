@@ -124,7 +124,8 @@ namespace RSWebAuthentication
 
             if (!string.IsNullOrEmpty(userName) && !string.IsNullOrEmpty(password))
             {
-                authResult = TokenUtilities.GetAuthenticationResultFromUserCredentials(userName, password);
+                authResult = TokenUtilities.GetAuthenticationResultFromUserCredentials(userName, password, ConfigurationManager.AppSettings["ClientId"]);
+                authResult = TokenUtilities.GetAuthenticationResultFromUserCredentials(userName, password, TokenUtilities.GraphResourceId);
             }
 
             return authResult != null;

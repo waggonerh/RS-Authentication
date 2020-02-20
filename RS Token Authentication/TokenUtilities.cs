@@ -34,6 +34,8 @@ namespace RSWebAuthentication
     /// </summary>
     internal class TokenUtilities
     {
+        internal static readonly string GraphResourceId = "00000003-0000-0000-c000-000000000000";
+
         internal static AuthenticationResult GetAuthenticationResultFromAuthCode(string code)
         {
             string redirectUri = ConfigurationManager.AppSettings["RedirectURI"];
@@ -46,99 +48,18 @@ namespace RSWebAuthentication
             return authContext.AcquireTokenByAuthorizationCode(code, new Uri(ConfigurationManager.AppSettings["RedirectURI"]), clientCredential);
         }
 
-        internal static AuthenticationResult GetAuthenticationResultFromUserCredentials(string userName, string password)
+        internal static AuthenticationResult GetAuthenticationResultFromUserCredentials(string userName, string password, string resource)
         {
             string authority = ConfigurationManager.AppSettings["AuthorityURI"];
             AuthenticationContext authContext = new AuthenticationContext(authority, new ADALTokenCache());
 
             UserCredential userCredential = new UserCredential(userName, password);
             string clientId = ConfigurationManager.AppSettings["APIClientId"];
-            string resource = ConfigurationManager.AppSettings["ClientId"];
 
             AuthenticationResult authResult = authContext.AcquireToken(resource, clientId, userCredential);
 
-            if (!IsInteractiveAuth())
-            {
-                OWINTokenValidation(authResult.AccessToken, resource);
-            }
-
             return authResult;
         }
-
-        internal static JwtSecurityToken GetDefaultTokenFromCache(string userName)
-        {
-            AuthenticationContext authContext = new AuthenticationContext(ConfigurationManager.AppSettings["AuthorityURI"], new ADALTokenCache());
-            UserIdentifier userId = new UserIdentifier(userName, UserIdentifierType.RequiredDisplayableId);
-            AuthenticationResult authResult;
-            string resource;
-            JwtSecurityToken jwtToken;
-
-            if (IsInteractiveAuth())
-            {
-                ClientCredential clientCredential = new ClientCredential(
-                    ConfigurationManager.AppSettings["ClientID"],
-                    ConfigurationManager.AppSettings["ClientSecret"]);
-
-                resource = ConfigurationManager.AppSettings["Resource"];
-                authResult = authContext.AcquireTokenSilent(resource, clientCredential, userId);
-            }
-            else
-            {
-                string clientId = ConfigurationManager.AppSettings["APIClientId"];
-                resource = ConfigurationManager.AppSettings["ClientId"];
-
-                authResult = authContext.AcquireTokenSilent(resource, clientId, userId);
-            }
-
-            if (IsInteractiveAuth())
-            {
-                jwtToken = new JwtSecurityToken(authResult.IdToken);
-            }
-            else
-            {
-                jwtToken = OWINTokenValidation(authResult.AccessToken, resource);
-            }
-
-            return jwtToken;
-        }
-
-        internal static JwtSecurityToken GetAccessTokenFromCache(string userName)
-        {
-            AuthenticationContext authContext = new AuthenticationContext(ConfigurationManager.AppSettings["AuthorityURI"], new ADALTokenCache());
-            UserIdentifier userId = new UserIdentifier(userName, UserIdentifierType.RequiredDisplayableId);
-            AuthenticationResult authResult;
-            string resource;
-            JwtSecurityToken jwtToken;
-
-            if (IsInteractiveAuth())
-            {
-                ClientCredential clientCredential = new ClientCredential(
-                    ConfigurationManager.AppSettings["ClientID"],
-                    ConfigurationManager.AppSettings["ClientSecret"]);
-
-                resource = ConfigurationManager.AppSettings["Resource"];
-                authResult = authContext.AcquireTokenSilent(resource, clientCredential, userId);
-            }
-            else
-            {
-                string clientId = ConfigurationManager.AppSettings["APIClientId"];
-                resource = ConfigurationManager.AppSettings["ClientId"];
-
-                authResult = authContext.AcquireTokenSilent(resource, clientId, userId);
-            }
-
-            if (IsInteractiveAuth())
-            {
-                jwtToken = new JwtSecurityToken(authResult.AccessToken);
-            }
-            else
-            {
-                jwtToken = OWINTokenValidation(authResult.AccessToken, resource);
-            }
-
-            return jwtToken;
-        }
-
         internal static JwtSecurityToken GetTokenFromClientCredentials(string resource)
         {
             AuthenticationContext authContext = new AuthenticationContext(ConfigurationManager.AppSettings["AuthorityURI"]);
@@ -153,17 +74,79 @@ namespace RSWebAuthentication
             return new JwtSecurityToken(authResult.AccessToken);
         }
 
+        internal static JwtSecurityToken GetCachedIdToken(string userName)
+        {
+            AuthenticationContext authContext = new AuthenticationContext(ConfigurationManager.AppSettings["AuthorityURI"], new ADALTokenCache());
+            UserIdentifier userId = new UserIdentifier(userName, UserIdentifierType.RequiredDisplayableId);
+            AuthenticationResult authResult;
+            string resource;
+            JwtSecurityToken jwtToken;
+
+            if (IsInteractiveAuth())
+            {
+                ClientCredential clientCredential = new ClientCredential(
+                    ConfigurationManager.AppSettings["ClientID"],
+                    ConfigurationManager.AppSettings["ClientSecret"]);
+
+                resource = TokenUtilities.GraphResourceId;
+                authResult = authContext.AcquireTokenSilent(resource, clientCredential, userId);
+                jwtToken = new JwtSecurityToken(authResult.IdToken);
+            }
+            else
+            {
+                string clientId = ConfigurationManager.AppSettings["APIClientId"];
+                resource = ConfigurationManager.AppSettings["ClientId"];
+
+                authResult = authContext.AcquireTokenSilent(resource, clientId, userId);
+                jwtToken = OWINTokenValidation(authResult.IdToken, resource);
+            }
+
+            return jwtToken;
+        }
+
+        internal static JwtSecurityToken GetCachedGraphToken(string userName)
+        {
+            AuthenticationContext authContext = new AuthenticationContext(ConfigurationManager.AppSettings["AuthorityURI"], new ADALTokenCache());
+            UserIdentifier userId = new UserIdentifier(userName, UserIdentifierType.RequiredDisplayableId);
+            AuthenticationResult authResult;
+            string resource = TokenUtilities.GraphResourceId;
+            JwtSecurityToken jwtToken;
+
+            if (IsInteractiveAuth())
+            {
+                ClientCredential clientCredential = new ClientCredential(
+                    ConfigurationManager.AppSettings["ClientID"],
+                    ConfigurationManager.AppSettings["ClientSecret"]);
+
+                authResult = authContext.AcquireTokenSilent(resource, clientCredential, userId);
+            }
+            else
+            {
+                string clientId = ConfigurationManager.AppSettings["APIClientId"];
+
+                authResult = authContext.AcquireTokenSilent(resource, clientId, userId);
+            }
+
+            jwtToken = new JwtSecurityToken(authResult.AccessToken);
+
+            return jwtToken;
+        }
+
         internal static string[] GetAllClaimsFromToken(string userName, string claimType)
         {
-            JwtSecurityToken jwtToken = GetDefaultTokenFromCache(userName);
+            JwtSecurityToken jwtToken = GetCachedIdToken(userName);
             return jwtToken.Claims.Where(claim => claim.Type.Equals(claimType, StringComparison.OrdinalIgnoreCase)).Select(claim => claim.Value).ToArray();
         }
 
         internal static string[] GetAllGroupsForUser(string userName)
         {
+            //If groups are utilized, report executino will hang with the Loading popup indefinitely.
+            // This is an async/await issue between the background service and the rsportal.exe.
+            throw new NotImplementedException();
+
             List<string> groups = new List<string>();
 
-            JwtSecurityToken token = TokenUtilities.GetAccessTokenFromCache(userName);
+            JwtSecurityToken token = TokenUtilities.GetCachedGraphToken(userName);
 
             GraphServiceClient client = new GraphServiceClient("https://graph.microsoft.com/v1.0",
                 new DelegateAuthenticationProvider(
@@ -172,6 +155,7 @@ namespace RSWebAuthentication
                         requestMessage.Headers.Authorization = new AuthenticationHeaderValue("bearer", token.RawData);
                     }));
 
+            //Issue lies here:
             IUserMemberOfCollectionWithReferencesPage memberOf =
                 client.Me.MemberOf.Request().Select("displayName").GetAsync().Result;
 
@@ -200,7 +184,9 @@ namespace RSWebAuthentication
             //Determin if request is orignating from Portal or API
             //  - HttpContext is null when RSPortal is authenticating, not null for API's
             //  - ReportViewer.aspx is originated from Portal but calls api, override to obtain correct token
-            return HttpContext.Current == null || HttpContext.Current.Request.Path.Equals("/ReportServer/Pages/ReportViewer.aspx", StringComparison.OrdinalIgnoreCase);
+            return HttpContext.Current == null
+                || HttpContext.Current.Request.Path.Equals("/ReportServer/Pages/ReportViewer.aspx", StringComparison.OrdinalIgnoreCase)
+                || HttpContext.Current.Request.Path.Equals("/ReportServer/Reserved.ReportViewerWebControl.axd", StringComparison.OrdinalIgnoreCase);
         }
 
         private static JwtSecurityToken OWINTokenValidation(string token, string audience)
