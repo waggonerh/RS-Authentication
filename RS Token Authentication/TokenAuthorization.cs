@@ -378,11 +378,10 @@ namespace RSWebAuthentication
                     }
                 }
 
-                //Allow full security for specific users, groups or roles
+                //Allow full security for specific users or roles
                 _securityOverrides = new Dictionary<AllowedSecurityTypes, List<string>>();
                 _securityOverrides.Add(AllowedSecurityTypes.Roles, new List<string>());
                 _securityOverrides.Add(AllowedSecurityTypes.Users, new List<string>());
-                _securityOverrides.Add(AllowedSecurityTypes.Groups, new List<string>());
 
                 XmlNode xmlSecurityOverride = root.SelectSingleNode("SecurityOverride");
 
@@ -547,14 +546,6 @@ namespace RSWebAuthentication
             {
                 return true;
             }
-            if (_securityOverrides[AllowedSecurityTypes.Groups].Count > 0)
-            {
-                string[] userSecurityGroups = TokenUtilities.GetAllGroupsForUser(userName);
-                if (userSecurityGroups.Intersect(_securityOverrides[AllowedSecurityTypes.Groups], StringComparer.OrdinalIgnoreCase).Count() >= 1)
-                {
-                    return true;
-                }
-            }
             if (_securityOverrides[AllowedSecurityTypes.Roles].Count > 0)
             {
                 string[] userSecurityRoles = TokenUtilities.GetAllClaimsFromToken(userName, "roles");
@@ -572,14 +563,6 @@ namespace RSWebAuthentication
             if (_allowedSecurityTypes.Contains(AllowedSecurityTypes.Users) && principalName.Equals(userName, StringComparison.OrdinalIgnoreCase))
             {
                 return true;
-            }
-            if (_allowedSecurityTypes.Contains(AllowedSecurityTypes.Groups))
-            {
-                string[] userSecurityGroups = TokenUtilities.GetAllGroupsForUser(userName);
-                if (userSecurityGroups.Contains(principalName, StringComparer.OrdinalIgnoreCase))
-                {
-                    return true;
-                }
             }
             if (_allowedSecurityTypes.Contains(AllowedSecurityTypes.Roles))
             {

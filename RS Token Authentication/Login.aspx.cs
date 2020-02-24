@@ -36,6 +36,10 @@ namespace RSWebAuthentication
             }
             else
             {
+                HttpCookie cookie = new HttpCookie("RSTypeAuthCookie");
+                cookie.Values.Add("IsInteractiveAuth", "true");
+
+                HttpContext.Current.Response.Cookies.Set(cookie);
                 FormsAuthentication.SetAuthCookie(authResult.UserInfo.DisplayableId, true);
                 Response.Redirect("/Reports");
             }

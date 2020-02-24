@@ -25,7 +25,7 @@ namespace RSWebAuthentication
 
         private const string _graphRoleFilter = "appId eq '{0}'";
         private const string _graphUserFilter = "userPrincipalName eq '{0}'";
-        private const string _graphGroupFilter = "displayName eq '{0}'";
+        //private const string _graphGroupFilter = "displayName eq '{0}'";
 
         public string LocalizedName
         {
@@ -100,16 +100,6 @@ namespace RSWebAuthentication
                         return true;
                     }
                 }
-                if (securityType == AllowedSecurityTypes.Groups)
-                {
-                    IGraphServiceGroupsCollectionPage groups =
-                        client.Groups.Request().Filter(string.Format(_graphGroupFilter, principalName)).Select("displayName").GetAsync().Result;
-
-                    if (groups.CurrentPage.Count == 1 && groups.CurrentPage[0].DisplayName.Equals(principalName, StringComparison.OrdinalIgnoreCase))
-                    {
-                        return true;
-                    }
-                }
             }
 
             return false;
@@ -125,10 +115,20 @@ namespace RSWebAuthentication
             if (!string.IsNullOrEmpty(userName) && !string.IsNullOrEmpty(password))
             {
                 authResult = TokenUtilities.GetAuthenticationResultFromUserCredentials(userName, password, ConfigurationManager.AppSettings["ClientId"]);
-                authResult = TokenUtilities.GetAuthenticationResultFromUserCredentials(userName, password, TokenUtilities.GraphResourceId);
             }
 
-            return authResult != null;
+            if (authResult == null)
+            {
+                return false;
+            }
+            else
+            {
+                HttpCookie cookie = new HttpCookie("RSTypeAuthCookie");
+                cookie.Values.Add("IsInteractiveAuth", "false");
+
+                HttpContext.Current.Response.Cookies.Set(cookie);
+                return true;
+            }
         }
 
         public void SetConfiguration(string configuration)
