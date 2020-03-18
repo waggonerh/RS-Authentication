@@ -61,13 +61,11 @@ Create a new app registration in your tenant:
 Run the script TokenCacheSQLObjects.sql, located in the setup folder, against the ReportServer database.
 
 ## Step 3: Configure Reporting Services
-### Copy Required Files
+### Section 1: Copy Required Files
 #### Copy DLLs
 Compile the project and copy the required dll's into the bin folder for RS.
 
 Default directory is: C:\Program Files\Microsoft SQL Server Reporting Services\SSRS\ReportServer\bin
-* Microsoft.Graph.dll
-* Microsoft.Graph.Core.dll
 * Microsoft.IdentityModel.Clients.ActiveDirectory.dll
 * Microsoft.IdentityModel.JsonWebTokens.dll
 * Microsoft.IdentityModel.Logging.dll
@@ -82,7 +80,7 @@ Copy Login.aspx from the compiled project into the ReportServer directoy
 
 Default directory is: C:\Program Files\Microsoft SQL Server Reporting Services\SSRS\ReportServer\bin
 
-### Modify Configuration Files
+### Section 2: Modify Configuration Files
 #### Modify RSReportServer.config
 Default location: C:\Program Files\Microsoft SQL Server Reporting Services\SSRS\ReportServer
 
@@ -111,7 +109,7 @@ Merge the below xml into the RSReportServer.config file after adding a valid mac
 					<SecurityOverride>
 						<Users>
 							<User>[ADUser]@[ADTenant]</User>
-							</Users>
+						</Users>
 						<Roles/>
 					</SecurityOverride>
 				</Configuration>
@@ -177,10 +175,6 @@ Merge the below the below xml into the web.config file after adding a valid mach
       <deny users="?" />
     </authorization>
     <identity impersonate="false" />
-    <securityPolicy>
-      <trustLevel name="RosettaSrv" policyFile="rssrvpolicy.config" />
-    </securityPolicy>
-    <trust level="Full" originUrl="" legacyCasModel="true" />
     <machineKey validationKey="" decryptionKey="" validation="SHA1" decryption="AES" />
   </system.web>
   <runtime>
@@ -201,14 +195,16 @@ Merge the below the below xml into the web.config file after adding a valid mach
     <add key="APIClientId" value="" />
     <add key="APIResource" value="" />
     <add key="TokenCacheSqlConnectionString" value="Server=.;Database=ReportServer;Trusted_Connection=True" />
+    <add key="EnterpriseAppId" value="" /> <!-- Object Id of enterprise application -->
+    <add key="NeverInteractiveAuth" value="false" />
   </appSettings>
 </configuration>
 ```
 
-#### Modify RSPortal.config
+#### Modify RSPortal.exe.config
 Default location: C:\Program Files\Microsoft SQL Server Reporting Services\SSRS\Portal
 
-Merge the below xml into the RSPortal.config file after setting correct values in the app settings section.
+Merge the below xml into the RSPortal.exe.config file after setting correct values in the app settings section.
 ```xml
 <configuration>
   <appSettings>
@@ -221,9 +217,58 @@ Merge the below xml into the RSPortal.config file after setting correct values i
     <add key="APIClientId" value="" />
     <add key="APIResource" value="" />
     <add key="TokenCacheSqlConnectionString" value="Server=.;Database=ReportServer;Trusted_Connection=True" />
+    <add key="EnterpriseAppId" value="" /> <!-- Object Id of enterprise application -->
+    <add key="NeverInteractiveAuth" value="false" />
   </appSettings>
 </configuration>
 ```
+
+#### Modify ReportingServicesService.exe.config
+Default location: C:\Program Files\Microsoft SQL Server Reporting Services\SSRS\ReportServer\bin
+
+Merge the below xml into the ReportingServicesService.exe.config file after setting correct values in the app settings section.
+```xml
+<configuration>
+  <runtime>
+    <assemblyBinding xmlns="urn:schemas-microsoft-com:asm.v1">
+      <dependentAssembly>
+        <assemblyIdentity name="Newtonsoft.Json" publicKeyToken="30ad4fe6b2a6aeed" culture="neutral" />
+        <bindingRedirect oldVersion="0.0.0.0-12.0.0.0" newVersion="12.0.0.0" />
+      </dependentAssembly>
+    </assemblyBinding>
+  </runtime>
+  <appSettings>
+    <add key="TenantId" value="" />
+    <add key="ClientID" value="" />
+    <add key="ClientSecret" value="" />
+    <add key="RedirectURI" value="https://[servername].[domain]/ReportServer/Login.aspx" />
+    <add key="AuthorizeURI" value="https://login.microsoftonline.com/[TenantId]/oauth2/v2.0/Authorize" />
+    <add key="AuthorityURI" value="https://login.microsoftonline.com/[TenantId]" />
+    <add key="APIClientId" value="" />
+    <add key="APIResource" value="" />
+    <add key="TokenCacheSqlConnectionString" value="Server=.;Database=ReportServer;Trusted_Connection=True" />
+    <add key="EnterpriseAppId" value="" /> <!-- Object Id of enterprise application -->
+    <add key="NeverInteractiveAuth" value="true" />
+  </appSettings>
+</configuration>
+```
+
+#### Modify Machine.config
+Default location: C:\Windows\Microsoft.NET\Framework64\v4.0.30319\Config
+
+Merge the below xml into the machine.config file.
+```xml
+<configuration>
+    <system.web>
+        <machineKey validationKey="09BC47BC597746A47DA3576CA786D6CE75D69CE57D8A912DA4C3896E62BD5FCCFB50FBAD9B0418AD7183D043B26EBC4ADFF903DF50DCAD9E25340C1F869D7027" decryptionKey="C78DC77D302A50BC21E4C4037ECDC8EA415837998D3E2F6D" validation="SHA1" decryption="AES"/>
+    </system.web>
+</configuration>
+```
+
+### Section 3: Install Newtonsoft.Json.dll into GAC
+File Location: C:\Program Files\Microsoft SQL Server Reporting Services\SSRS\ReportServer\bin
+
+Install the version of Newtonsoft.Json.dll located in the reporting services bin directory into the GAC of the server.
 
 ## Step 4: Verification and Usage
 Start RS services and verify redirect.
