@@ -1,14 +1,11 @@
 ﻿using System;
 using System.Data;
-using System.Data.SqlClient;
 using System.Security.Principal;
 using System.Web;
 using Microsoft.ReportingServices.Interfaces;
-using System.Globalization;
 using System.Xml;
 using Microsoft.IdentityModel.Clients.ActiveDirectory;
 using System.Collections.Generic;
-using Microsoft.Graph;
 using System.Net.Http.Headers;
 using System.IdentityModel.Tokens.Jwt;
 using System.Configuration;
@@ -66,39 +63,24 @@ namespace RSWebAuthentication
 
         public bool IsValidPrincipalName(string principalName)
         {
-            JwtSecurityToken token = TokenUtilities.GetTokenFromClientCredentials("https://graph.microsoft.com/");
-
-            GraphServiceClient client = new GraphServiceClient("https://graph.microsoft.com/v1.0",
-                new DelegateAuthenticationProvider(
-                    async (requestMessage) =>
-                    {
-                        requestMessage.Headers.Authorization = new AuthenticationHeaderValue("bearer", token.RawData);
-                    }));
-
-
-            foreach (AllowedSecurityTypes securityType in _allowedSecurityTypes)
+            if (_allowedSecurityTypes.Contains(AllowedSecurityTypes.Roles))
             {
-                if (securityType == AllowedSecurityTypes.Roles)
+                List<Graph.AppRole> appRoleAssignments = Graph.AppRole.GetRolesForApplication(ConfigurationManager.AppSettings["ClientID"]);
+
+                IEnumerable<string> appRoleValues = appRoleAssignments.Select(t => t.Value);
+
+                if (appRoleValues.Contains(principalName, StringComparer.OrdinalIgnoreCase))
                 {
-                    IGraphServiceApplicationsCollectionPage apps =
-                        client.Applications.Request().Filter(string.Format(_graphRoleFilter, ConfigurationManager.AppSettings["ClientID"])).Select("appRoles").GetAsync().Result;
-
-                    IEnumerable<string> appRoleValues = apps.CurrentPage[0].AppRoles.Select(t => t.Value);
-
-                    if (appRoleValues.Contains(principalName, StringComparer.OrdinalIgnoreCase))
-                    {
-                        return true;
-                    }
+                    return true;
                 }
-                if (securityType == AllowedSecurityTypes.Users)
-                {
-                    IGraphServiceUsersCollectionPage users =
-                        client.Users.Request().Filter(string.Format(_graphUserFilter, principalName)).Select("userPrincipalName").GetAsync().Result;
+            }
+            if (_allowedSecurityTypes.Contains(AllowedSecurityTypes.Roles))
+            {
+                List<Graph.User> users = Graph.User.GetUsers(principalName);
 
-                    if (users.CurrentPage.Count == 1 && users.CurrentPage[0].UserPrincipalName.Equals(principalName, StringComparison.OrdinalIgnoreCase))
-                    {
-                        return true;
-                    }
+                if (users.Count == 1 && users[0].UserPrincipalName.Equals(principalName, StringComparison.OrdinalIgnoreCase))
+                {
+                    return true;
                 }
             }
 

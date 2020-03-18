@@ -3,15 +3,8 @@ using System;
 using System.Configuration;
 using System.Web;
 using System.IdentityModel.Tokens.Jwt;
-using System.Collections.Generic;
 using System.Linq;
-using System.Security.Claims;
-using Microsoft.IdentityModel.Logging;
-using Microsoft.IdentityModel.Tokens;
-using Microsoft.IdentityModel.Protocols.OpenIdConnect;
-using Microsoft.IdentityModel.Protocols;
-using Microsoft.Graph;
-using System.Net.Http.Headers;
+using System.Collections.Generic;
 
 namespace RSWebAuthentication
 {
@@ -99,6 +92,20 @@ namespace RSWebAuthentication
         {
             JwtSecurityToken jwtToken = GetCachedIdToken(userName);
             return jwtToken.Claims.Where(claim => claim.Type.Equals(claimType, StringComparison.OrdinalIgnoreCase)).Select(claim => claim.Value).ToArray();
+        }
+
+        internal static string[] GetRolesForUserFromGraph(string userName)
+        {
+            List<Graph.AppRoleAssignment> appRoleAssignments = Graph.AppRoleAssignment.GetAssignedRolesForUser(userName, ConfigurationManager.AppSettings["EnterpriseAppId"]);
+            List<Graph.AppRole> appRoles = Graph.AppRole.GetRolesForApplication(ConfigurationManager.AppSettings["ClientID"]);
+
+            var userRoles = appRoleAssignments
+                .Join(appRoles,
+                assignments => assignments.AppRoleId,
+                roles => roles.Id,
+                (assignments, roles) => new { AppRoleAssignment = assignments, AppRoles = roles });
+
+            return userRoles.Select(t => t.AppRoles.Value).Distinct().ToArray();
         }
 
         private static bool IsInteractiveAuth()

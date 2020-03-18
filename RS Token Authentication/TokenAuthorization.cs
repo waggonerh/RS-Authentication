@@ -6,6 +6,7 @@ using System.Runtime.Serialization.Formatters.Binary;
 using Microsoft.ReportingServices.Interfaces;
 using System.Linq;
 using System.Xml;
+using System.Configuration;
 
 namespace RSWebAuthentication
 {
@@ -548,7 +549,17 @@ namespace RSWebAuthentication
             }
             if (_securityOverrides[AllowedSecurityTypes.Roles].Count > 0)
             {
-                string[] userSecurityRoles = TokenUtilities.GetAllClaimsFromToken(userName, "roles");
+                string[] userSecurityRoles;
+
+                if (Convert.ToBoolean(ConfigurationManager.AppSettings["NeverInteractiveAuth"]) == true)
+                {
+                    userSecurityRoles = TokenUtilities.GetRolesForUserFromGraph(userName);
+                }
+                else
+                {
+                    userSecurityRoles = TokenUtilities.GetAllClaimsFromToken(userName, "roles");
+                }
+
                 if (userSecurityRoles.Intersect(_securityOverrides[AllowedSecurityTypes.Roles], StringComparer.OrdinalIgnoreCase).Count() >= 1)
                 {
                     return true;
@@ -566,7 +577,17 @@ namespace RSWebAuthentication
             }
             if (_allowedSecurityTypes.Contains(AllowedSecurityTypes.Roles))
             {
-                string[] userSecurityRoles = TokenUtilities.GetAllClaimsFromToken(userName, "roles");
+                string[] userSecurityRoles;
+
+                if (Convert.ToBoolean(ConfigurationManager.AppSettings["NeverInteractiveAuth"]) == true)
+                {
+                    userSecurityRoles = TokenUtilities.GetRolesForUserFromGraph(userName);
+                }
+                else
+                {
+                    userSecurityRoles = TokenUtilities.GetAllClaimsFromToken(userName, "roles");
+                }
+
                 if (userSecurityRoles.Contains(principalName, StringComparer.OrdinalIgnoreCase))
                 {
                     return true;
