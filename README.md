@@ -96,7 +96,8 @@ Merge the below xml into the RSReportServer.config file after adding a valid mac
 		<PageCountMode>Estimate</PageCountMode>
 		<CustomAuthenticationUI>
 			<PassThroughCookies>
-				<PassThroughCookie>sqlAuthCookie</PassThroughCookie>
+				<PassThroughCookie>RSAuthCookie</PassThroughCookie>
+				<PassThroughCookie>RSTypeAuthCookie</PassThroughCookie>
 			</PassThroughCookies>
 		</CustomAuthenticationUI>
 	</UI>
@@ -169,7 +170,7 @@ Merge the below the below xml into the web.config file after adding a valid mach
 <configuration>
   <system.web>
     <authentication mode="Forms">
-      <forms loginUrl="Login.aspx" name="sqlAuthCookie" timeout="60" path="/">
+      <forms loginUrl="Login.aspx" name="RSAuthCookie" timeout="60" path="/">
       </forms>
     </authentication>
     <authorization>
@@ -232,4 +233,3 @@ The user (or role) configured in the <SecurityOverride> section of the RSReportS
 If the config for <AllowedSecurityTypes> was left with the default <Roles/>, any role added to the app manifest can be mapped to a reporting services role through the web GUI.
 * When assigning an app manifest role, the name must match the app manifest role's "value".
 * Users or groups assigned to the app role in Azure AD will gain all RS role permissions assigned to the app role.
-
